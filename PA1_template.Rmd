@@ -11,15 +11,120 @@ output:
 ```{r eval=TRUE, echo=TRUE}
 library(readr)
 library(magrittr)
+library(plyr)
+library(dplyr)
+d <- read_csv("activity.csv")
+
 ```
 
 ## What is mean total number of steps taken per day?
 
+### Histogram of Total Number of Steps Taken per Day:
+```{r eval=TRUE, echo=TRUE}
+filter(d, !is.na(steps)) %>%
+group_by(date) %>%
+summarise(total_steps=sum(steps)) %$%
+{hist(total_steps)}
+```
 
+### Mean total number of steps per day:
+
+```{r eval=TRUE, echo=TRUE}
+filter(d, !is.na(steps)) %>%
+group_by(date) %>%
+summarise(total_steps=sum(steps)) %$%
+{mean(total_steps)}
+```
+### Median total number of steps per day:
+```{r eval=TRUE, echo=TRUE}
+filter(d, !is.na(steps)) %>%
+group_by(date) %>%
+summarise(total_steps=sum(steps)) %$%
+{median(total_steps)}
+```
 ## What is the average daily activity pattern?
 
+### Time-series plot
+```{r eval=TRUE, echo=TRUE}
+filter(d, !is.na(steps)) %>%
+group_by(interval) %>%
+summarise(mean_steps=mean(steps)) %$%
+{plot(interval, mean_steps, type="l")}
+```
+
+### Maximum avg no steps per interval
+```{r eval=TRUE, echo=TRUE}
+filter(d, !is.na(steps)) %>%
+group_by(interval) %>%
+summarise(mean_steps=mean(steps)) %>%
+arrange(desc(mean_steps)) %>%
+head(1) %>%
+.[[1]]
+```
 
 ## Imputing missing values
 
+### Total number of NA rows
+
+```{r eval=TRUE, echo=TRUE}
+filter(d, is.na(steps)) %>%
+nrow
+```
+
+### Strategy for Imputing NA (Using Mean for Interval Across all Dates)
+
+Will use the mean value for the interval across all dates if data is NA.
+
+### Imputed DataSet d\_imp
+```{r eval=TRUE, echo=TRUE}
+  d %>%
+  group_by(interval) %>%
+  mutate_each(funs(. %>% {ifelse(is.na(.), mean(., na.rm=T), .)}), steps) %>%
+  ungroup ->
+d_imp
+```
+
+### Results for Imputed Data
+#### Histogram of Total Number of Steps Taken per Day:
+```{r eval=TRUE, echo=TRUE}
+group_by(d_imp, date) %>%
+summarise(total_steps=sum(steps)) %$%
+{hist(total_steps)}
+```
+
+#### Mean total number of steps per day:
+
+```{r eval=TRUE, echo=TRUE}
+group_by(d_imp, date) %>%
+summarise(total_steps=sum(steps)) %$%
+{mean(total_steps)}
+```
+
+#### Median total number of steps per day:
+```{r eval=TRUE, echo=TRUE}
+group_by(d_imp, date) %>%
+summarise(total_steps=sum(steps)) %$%
+{median(total_steps)}
+```
+
+#### Interpretation
+No, the imputation strategy is mean-preserving.
+
 
 ## Are there differences in activity patterns between weekdays and weekends?
+
+### New Data with Weedays Column
+```{r eval=TRUE, echo=TRUE}
+d %<>% mutate(weekend=format(date, "%u") %>% as.integer %in% 6:7) 
+```
+
+
+### Panel Plot
+```{r eval=TRUE, echo=TRUE}
+par(mfrow = c(2, 1))
+filter(d, weekend) %>% group_by(interval) %>% summarise(mean_steps=mean(steps, na.rm=T)) %$%
+{plot(type="l", interval, mean_steps, main="Weekend Mean Steps per Interval")}
+
+filter(d, !weekend) %>% group_by(interval) %>% summarise(mean_steps=mean(steps, na.rm=T)) %$%
+{plot(type="l", interval, mean_steps, main="Weekday Mean Steps per Interval")}
+```
